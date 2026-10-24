@@ -1,0 +1,54 @@
+{
+ "packs": [
+  {
+   "id": "bridge",
+   "name": "Bridge",
+   "keys": [
+    "A",
+    "Ab",
+    "Abm",
+    "Am",
+    "B",
+    "Bb",
+    "Bbm",
+    "Bm",
+    "C",
+    "Cm",
+    "D",
+    "Db",
+    "Dbm",
+    "Dm",
+    "E",
+    "Eb",
+    "Ebm",
+    "Em",
+    "F",
+    "Fm",
+    "G",
+    "Gb",
+    "Gbm",
+    "Gm"
+   ],
+   "desc": "Karl Verkade · мажор и минор"
+  },
+  {
+   "id": "warm",
+   "name": "Warm",
+   "keys": [
+    "A",
+    "Ab",
+    "B",
+    "Bb",
+    "C",
+    "D",
+    "Db",
+    "E",
+    "Eb",
+    "F",
+    "G",
+    "Gb"
+   ],
+   "desc": "Churchfront · тёплый"
+  }
+ ]
+}
