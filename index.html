@@ -375,14 +375,16 @@ function keyFile(p, k, minor){
 
 /* ---------- seamless looper: overlapping copies with equal-power crossfades ---------- */
 const N = 256, UP = new Float32Array(N), DOWN = new Float32Array(N);
-for (let i = 0; i < N; i++){ const x = i/(N-1); UP[i] = Math.sin(x*Math.PI/2); DOWN[i] = Math.cos(x*Math.PI/2); }
+const EASE_IN = new Float32Array(N), EASE_OUT = new Float32Array(N);
+for (let i = 0; i < N; i++){ const x = i/(N-1); UP[i] = Math.sin(x*Math.PI/2); DOWN[i] = Math.cos(x*Math.PI/2);
+  EASE_IN[i] = (1-Math.cos(x*Math.PI))/2; EASE_OUT[i] = (1+Math.cos(x*Math.PI))/2; }
 class Loop {
   constructor(buf, dest, rate){
     this.buf = buf; this.rate = rate; this.dead = false; this.srcs = new Set();
     this.outG = ctx.createGain(); this.outG.connect(dest);
     this.inG = ctx.createGain(); this.inG.gain.value = 0; this.inG.connect(this.outG);
   }
-  start(fade){ const t = ctx.currentTime+.05; this.inG.gain.setValueCurveAtTime(UP,t,fade); this.spawn(t,true, Math.random()*this.buf.duration*.5); }
+  start(fade, delay){ const t = ctx.currentTime+.05+(delay||0); this.inG.gain.setValueCurveAtTime(EASE_IN,t,fade); this.spawn(t,true, Math.random()*this.buf.duration*.5); }
   spawn(t, first, offset){
     if (this.dead) return;
     offset = offset || 0;
@@ -398,7 +400,7 @@ class Loop {
   }
   stop(fade){
     if (this.dead) return; this.dead = true; clearTimeout(this.timer);
-    const t = ctx.currentTime+.02; this.outG.gain.setValueCurveAtTime(DOWN,t,fade);
+    const t = ctx.currentTime+.02; this.outG.gain.setValueCurveAtTime(EASE_OUT,t,fade);
     this.srcs.forEach(s => { try{ s.stop(t+fade+.05); }catch(e){} });
     setTimeout(() => { try{ this.outG.disconnect(); }catch(e){} }, (fade+.5)*1000);
   }
@@ -406,11 +408,15 @@ class Loop {
 
 /* ---------- pads ---------- */
 let loops = null;
+/* старый пэд сначала затихает, новый вступает к концу затухания и нарастает;
+   «Переход» — всё время смены, на каждую половину ~55% */
 function swapLoops(buf, rate){
-  const f = S.fade, old = loops;
+  const old = loops, half = S.fade*.55;
   loops = { pad:new Loop(buf,padBus,rate), bass:new Loop(buf,bassIn,rate*.5), shim:new Loop(buf,shimIn,rate*2) };
-  Object.values(loops).forEach(l => l.start(f));
-  if (old) Object.values(old).forEach(l => l.stop(f));
+  if (old){
+    Object.values(old).forEach(l => l.stop(half));
+    Object.values(loops).forEach(l => l.start(half, S.fade-half));
+  } else Object.values(loops).forEach(l => l.start(half));
 }
 async function loadAndPlay(k){
   const p = packs.find(x => x.id === S.pack); if (!p) return;
