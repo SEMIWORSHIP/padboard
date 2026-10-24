@@ -75,6 +75,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--hot);outline-of
 h2{margin:0;font-family:var(--display-ru);font-weight:600;font-size:20px;text-transform:uppercase;letter-spacing:.06em}
 .hint{font-size:12px;color:var(--muted)}
 
+.acc{display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:3px}
+.acc button{border:0;background:transparent;border-radius:8px;width:40px;height:32px;font-size:18px;font-weight:700;color:var(--muted);transition:background .3s,color .3s}
+.acc button[aria-pressed="true"]{background:var(--surface-2);color:var(--fg);box-shadow:inset 0 0 0 1px rgba(255,178,56,.55)}
 .seg{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px}
 .seg button{flex:1;min-width:0;border:0;background:transparent;border-radius:10px;padding:10px 6px;color:var(--muted);font-weight:600;font-size:13px;transition:background .3s,color .3s}
 .seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--fg);box-shadow:inset 0 0 0 1px rgba(255,178,56,.55)}
@@ -169,7 +172,7 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
   </section>
 
   <section class="sec">
-    <div class="sec-head"><h2>Тональность</h2><span class="hint">тап по горящей — в тишину</span></div>
+    <div class="sec-head"><h2>Тональность</h2><div class="acc" id="acc" role="group" aria-label="Знаки"><button data-s="0" aria-label="Бемоли">♭</button><button data-s="1" aria-label="Диезы">♯</button></div></div>
     <div class="seg" id="quality">
       <button data-q="0">Мажор</button><button data-q="1">Минор</button>
     </div>
@@ -259,11 +262,13 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border:0;border-radiu
 (() => {
 /* ---------- music data ---------- */
 const KEYS = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const SHOW = [['C',''],['D','♭'],['D',''],['E','♭'],['E',''],['F',''],['F','♯'],['G',''],['A','♭'],['A',''],['B','♭'],['B','']];
+const FLATS  = [['C',''],['D','♭'],['D',''],['E','♭'],['E',''],['F',''],['G','♭'],['G',''],['A','♭'],['A',''],['B','♭'],['B','']];
+const SHARPS = [['C',''],['C','♯'],['D',''],['D','♯'],['E',''],['F',''],['F','♯'],['G',''],['G','♯'],['A',''],['A','♯'],['B','']];
+const spell = k => (S.sharps ? SHARPS : FLATS)[k];
 const SHAPES = [[0,'C'],[2,'D'],[4,'E'],[7,'G'],[9,'A']];
 const SCALE = {0:[0,2,4,7,9], 1:[0,3,5,7,10]};
-const keyHtml = k => SHOW[k][0] + (SHOW[k][1] ? '<sup>'+SHOW[k][1]+'</sup>' : '');
-const keyText = k => SHOW[k][0] + SHOW[k][1];
+const keyHtml = k => spell(k)[0] + (spell(k)[1] ? '<sup>'+spell(k)[1]+'</sup>' : '');
+const keyText = k => spell(k)[0] + spell(k)[1];
 function capoHint(k){
   if (SHAPES.some(s => s[0] === k)) return 'открытые';
   for (let c = 1; c <= 5; c++){ const s = SHAPES.find(s => (s[0]+c)%12 === k); if (s) return 'капо '+c+' · '+s[1]; }
@@ -274,7 +279,7 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 const rep = (a,n) => Array.from({length:n}, (_,i) => a[i%a.length]);
 
 /* ---------- state ---------- */
-const DEF = {pack:null, minor:0, master:80, fade:6, space:35, bright:85,
+const DEF = {pack:null, minor:0, sharps:0, master:80, fade:6, space:35, bright:85,
   pad:{on:true,v:85}, bass:{on:true,v:40}, shim:{on:false,v:40}, bell:{on:false,v:35},
   kit:'live', pattern:'groove', bpm:72, perc:65};
 const S = Object.assign(structuredClone(DEF), load());
@@ -584,10 +589,10 @@ const $ = id => document.getElementById(id);
 const keysEl = $('keys'), packsEl = $('packs'), patEl = $('patterns'), kitsEl = $('kits'), qEl = $('quality');
 KEYS.forEach((_,k) => {
   const b = document.createElement('button'); b.className = 'key'; b.dataset.k = k;
-  b.innerHTML = '<b>'+keyHtml(k)+'</b><small>'+capoHint(k)+'</small>';
-  b.setAttribute('aria-label','Тональность '+keyText(k));
+  b.innerHTML = '<b></b><small>'+capoHint(k)+'</small>';
   b.addEventListener('click', () => setKey(k)); keysEl.appendChild(b);
 });
+$('acc').querySelectorAll('button').forEach(b => b.addEventListener('click', () => { S.sharps = +b.dataset.s; save(); buzz(); render(); }));
 qEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
   const q = +b.dataset.q; if (S.minor === q) return; S.minor = q; save(); buzz();
   if (cur != null) loadAndPlay(cur); render();
@@ -637,8 +642,10 @@ function render(){
   const p = packs.find(x => x.id === S.pack);
   const hasMinor = !!p && p.keys.some(l => l.endsWith('m'));
   keysEl.querySelectorAll('.key').forEach(b => { const k = +b.dataset.k;
+    b.firstChild.innerHTML = keyHtml(k); b.setAttribute('aria-label','Тональность '+keyText(k));
     b.classList.toggle('on', k === cur && loadingKey == null); b.classList.toggle('loading', k === loadingKey); b.setAttribute('aria-pressed', k === cur); });
   qEl.querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', +b.dataset.q === (hasMinor ? S.minor : 0)); b.disabled = +b.dataset.q === 1 && !hasMinor; });
+  $('acc').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', +b.dataset.s === S.sharps));
   packsEl.querySelectorAll('.pack').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === S.pack));
   kitsEl.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === S.kit));
   patEl.querySelectorAll('.chip').forEach(b => { b.setAttribute('aria-pressed', b.dataset.id === S.pattern); b.classList.toggle('next', b.dataset.id === perc.pending); });
